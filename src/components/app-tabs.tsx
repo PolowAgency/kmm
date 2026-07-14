@@ -27,6 +27,16 @@ export default function AppTabs() {
           renderingMode="template"
         />
       </NativeTabs.Trigger>
+
+      {/* Icône dupliquée depuis explore.png en attendant une vraie icône dédiée — voir
+          assets/images/tabIcons/signals.png. */}
+      <NativeTabs.Trigger name="signals">
+        <NativeTabs.Trigger.Label>Signals</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          src={require('@/assets/images/tabIcons/signals.png')}
+          renderingMode="template"
+        />
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
