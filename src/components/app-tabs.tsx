@@ -37,6 +37,16 @@ export default function AppTabs() {
           renderingMode="template"
         />
       </NativeTabs.Trigger>
+
+      {/* Icône dupliquée depuis explore.png en attendant une vraie icône dédiée — voir
+          assets/images/tabIcons/lens.png. */}
+      <NativeTabs.Trigger name="lens">
+        <NativeTabs.Trigger.Label>Lens</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          src={require('@/assets/images/tabIcons/lens.png')}
+          renderingMode="template"
+        />
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
