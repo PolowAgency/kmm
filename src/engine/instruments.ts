@@ -14,7 +14,7 @@ export const INSTRUMENTS: Record<string, Instrument> = {
   YM: { code: 'YM', name: 'E-mini Dow', grp: 'EQUITY INDEX', exch: 'CBOT', tick: 1, dec: 0, base: 43200, lot: 1, tickVal: 5, live: true },
   RTY: { code: 'RTY', name: 'E-mini Russell 2000', grp: 'EQUITY INDEX', exch: 'CME', tick: 0.1, dec: 1, base: 2210, lot: 1, tickVal: 5, live: true },
   CL: { code: 'CL', name: 'Crude Oil', grp: 'ENERGY', exch: 'NYMEX', tick: 0.01, dec: 2, base: 71.5, lot: 1, tickVal: 10, live: true },
-  GC: { code: 'GC', name: 'Micro Gold (MGC)', grp: 'METALS', exch: 'COMEX', tick: 0.1, dec: 1, base: 2650, lot: 1, tickVal: 1, live: true },
+  GC: { code: 'GC', name: 'Micro Gold (MGC)', grp: 'METALS', exch: 'COMEX', tick: 0.1, dec: 1, base: 2650, lot: 0.3, tickVal: 1, live: true },
   '6E': { code: '6E', name: 'Euro FX', grp: 'FX', exch: 'CME', tick: 0.00005, dec: 5, base: 1.085, lot: 1, tickVal: 6.25, live: true },
   ZN: { code: 'ZN', name: '10-Year T-Note', grp: 'RATES', exch: 'CBOT', tick: 0.015625, dec: 4, base: 110.5, lot: 1, tickVal: 15.625, live: true },
 
