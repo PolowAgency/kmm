@@ -25,7 +25,13 @@ export default function AppTabs() {
             <TabButton>Home</TabButton>
           </TabTrigger>
           <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton>Explore</TabButton>
+            <TabButton>Terminal</TabButton>
+          </TabTrigger>
+          <TabTrigger name="signals" href="/signals" asChild>
+            <TabButton>Signals</TabButton>
+          </TabTrigger>
+          <TabTrigger name="lens" href="/lens" asChild>
+            <TabButton>Lens</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -55,7 +61,7 @@ export function CustomTabList(props: TabListProps) {
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
         <ThemedText type="smallBold" style={styles.brandText}>
-          Expo Starter
+          KMM Terminal
         </ThemedText>
 
         {props.children}
