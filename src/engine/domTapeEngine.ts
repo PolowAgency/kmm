@@ -92,14 +92,14 @@ export class DomTapeEngine {
     if (this.tradeSizes.length > 400) this.tradeSizes.shift()
 
     const big = trade.size > 25 * this.instrument.lot
-    const d = new Date(trade.ts)
+    const d = new Date(trade.timestampMs)
     this.tapeBuf.unshift({
       time: d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0').slice(0, 2),
       price: trade.price,
       size: trade.size,
       side: trade.side,
       big,
-      ts: trade.ts,
+      ts: trade.timestampMs,
     })
     if (this.tapeBuf.length > 60) this.tapeBuf.length = 60
   }
@@ -185,7 +185,7 @@ export class DomTapeEngine {
     }
     const imb = tb / Math.max(1, ta)
     let d10 = 0
-    for (const t of this.recentTrades) if (now - t.ts < 10000) d10 += t.side === 'B' ? t.size : -t.size
+    for (const t of this.recentTrades) if (now - t.timestampMs < 10000) d10 += t.side === 'B' ? t.size : -t.size
     const domHead: DomHeadStat[] = [
       { k: 'SPRD', v: spread.toFixed(dec), sign: 0 },
       { k: 'IMB', v: imb.toFixed(2), sign: imb > 1.4 ? 1 : imb < 0.7 ? -1 : 0 },

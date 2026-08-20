@@ -1,4 +1,4 @@
-import type { BookSnapshot, Instrument, Side, Trade } from './types'
+import type { BookSnapshot, Instrument, Trade } from './types'
 
 /**
  * Pressure Engine — moteur de scoring microstructure. Port verbatim depuis le terminal web
@@ -86,7 +86,7 @@ function emaStep(prev: number, value: number, halfLifeMs: number, dtMs: number):
 
 interface LevelExec {
   vol: number
-  lastTs: number
+  lastTimestampMs: number
 }
 
 interface LevelDisplay {
@@ -101,8 +101,8 @@ export class PressureEngine {
   private trades: Trade[] = []
   private tradeSizes: number[] = []
   private latestBook: BookSnapshot | null = null
-  private depthHist: { ts: number; bidDepth: number; askDepth: number }[] = []
-  private priceHist: { ts: number; price: number }[] = []
+  private depthHist: { timestampMs: number; bidDepth: number; askDepth: number }[] = []
+  private priceHist: { timestampMs: number; price: number }[] = []
   private levelExec = new Map<number, LevelExec>()
   private levelDisplay = new Map<number, LevelDisplay>()
   private vwapPV = 0
@@ -134,7 +134,7 @@ export class PressureEngine {
     let askDepth = 0
     for (const [, s] of book.bids) bidDepth += s
     for (const [, s] of book.asks) askDepth += s
-    this.depthHist.push({ ts: book.ts, bidDepth, askDepth })
+    this.depthHist.push({ timestampMs: book.timestampMs, bidDepth, askDepth })
     if (this.depthHist.length > 600) this.depthHist.shift()
 
     const tick = this.instrument.tick
@@ -159,14 +159,14 @@ export class PressureEngine {
     if (this.tradeSizes.length > 400) this.tradeSizes.shift()
     this.vwapPV += trade.price * trade.size
     this.vwapV += trade.size
-    this.priceHist.push({ ts: trade.ts, price: trade.price })
+    this.priceHist.push({ timestampMs: trade.timestampMs, price: trade.price })
     if (this.priceHist.length > 2000) this.priceHist.shift()
 
     const tick = this.instrument.tick
     const t = Math.round(trade.price / tick)
-    const lv = this.levelExec.get(t) ?? { vol: 0, lastTs: trade.ts }
+    const lv = this.levelExec.get(t) ?? { vol: 0, lastTimestampMs: trade.timestampMs }
     lv.vol += trade.size
-    lv.lastTs = trade.ts
+    lv.lastTimestampMs = trade.timestampMs
     this.levelExec.set(t, lv)
 
     this.detectSweep(trade)
@@ -195,7 +195,7 @@ export class PressureEngine {
     const cut = now - windowMs
     const out: Trade[] = []
     for (let i = this.trades.length - 1; i >= 0; i--) {
-      if (this.trades[i].ts < cut) break
+      if (this.trades[i].timestampMs < cut) break
       out.push(this.trades[i])
     }
     return out
@@ -203,13 +203,13 @@ export class PressureEngine {
 
   private priceAt(now: number, windowMs: number): number | null {
     const cut = now - windowMs
-    for (const p of this.priceHist) if (p.ts >= cut) return p.price
+    for (const p of this.priceHist) if (p.timestampMs >= cut) return p.price
     return this.priceHist.length ? this.priceHist[0].price : null
   }
 
   private depthAt(now: number, windowMs: number): { bidDepth: number; askDepth: number } | null {
     const cut = now - windowMs
-    for (const d of this.depthHist) if (d.ts >= cut) return d
+    for (const d of this.depthHist) if (d.timestampMs >= cut) return d
     return this.depthHist.length ? this.depthHist[0] : null
   }
 
@@ -219,14 +219,17 @@ export class PressureEngine {
     const w = this.tradesSince(now, 12000)
     let buy = 0
     let sell = 0
-    for (const t of w) (t.side === 'B' ? (buy += t.size) : (sell += t.size))
+    for (const t of w) {
+      if (t.side === 'B') buy += t.size
+      else sell += t.size
+    }
     const tot = buy + sell
     return { v: tot ? clamp((100 * (buy - sell)) / tot, -100, 100) : 0, c: clamp(tot / (this.avgSize * 20), 0, 1) }
   }
 
   private calcDelta(now: number): PressureComponent {
     const recent = this.tradesSince(now, 30000)
-    const prior = this.tradesSince(now, 60000).filter((t) => now - t.ts >= 30000)
+    const prior = this.tradesSince(now, 60000).filter((t) => now - t.timestampMs >= 30000)
     const sum = (arr: Trade[]) => arr.reduce((a, t) => a + (t.side === 'B' ? t.size : -t.size), 0)
     const accel = sum(recent) - sum(prior)
     return { v: clamp((100 * accel) / (this.avgSize * 15), -100, 100), c: clamp((recent.length + prior.length) / 40, 0, 1) }
@@ -349,7 +352,7 @@ export class PressureEngine {
     const last4 = w.slice(-4)
     const sameSide = last4.every((t) => t.side === last4[0].side)
     if (!sameSide) return
-    const span = last4[last4.length - 1].ts - last4[0].ts
+    const span = last4[last4.length - 1].timestampMs - last4[0].timestampMs
     if (span > 1500) return
     const tick = this.instrument.tick
     const priceMove = (last4[last4.length - 1].price - last4[0].price) / tick

@@ -1,3 +1,4 @@
+import { inferMarketDataSource, logNormalizedTimestamp, normalizeMarketTimestamp } from './marketDataNormalization'
 import type { BookLevel, BookSnapshot, Instrument, NewsItem, ServiceStatus, Side, Trade } from './types'
 
 type Listener<T> = (payload: T) => void
@@ -16,6 +17,14 @@ interface NewsCatalogEntry {
   unit?: string
   exp?: [number, number]
 }
+
+interface BufferedLiveTrade extends Trade {
+  sequence: number
+}
+
+const LIVE_REORDER_WINDOW_MS = 40
+const LIVE_DEDUPE_LIMIT = 2048
+const TIMESTAMP_DEBUG_SAMPLES_PER_CONNECTION = 6
 
 /** Calendrier macro simulé — indépendant du mode SIM/LIVE (aucune vraie donnée de news n'est
  * câblée ; c'est un contexte de trading, pas un flux Databento). */
@@ -112,6 +121,7 @@ export class MarketDataService {
   disconnect() {
     this.closedByClient = true
     this.stopSim()
+    this.flushPendingLiveTrades()
     this.closeLiveSocket()
     if (this.newsTimer) clearTimeout(this.newsTimer)
     if (this.newsReleaseTimer) clearTimeout(this.newsReleaseTimer)
@@ -252,6 +262,14 @@ export class MarketDataService {
   private liveMode: ServiceStatus['mode'] = 'CONNECTING'
   private liveRate = 0
   private liveLatency = 0
+  private liveTradeSequence = 0
+  private liveTradeFlushTimer: ReturnType<typeof setTimeout> | null = null
+  private pendingLiveTrades: BufferedLiveTrade[] = []
+  private liveTradeDedupe = new Set<string>()
+  private liveTradeDedupeQueue: string[] = []
+  private lastBookTimestampMs = 0
+  private lastTradeTimestampMs = 0
+  private timestampDebugBudget = TIMESTAMP_DEBUG_SAMPLES_PER_CONNECTION
 
   private openLiveSocket(symbol: string) {
     if (!this.wsUrl) return
@@ -270,6 +288,7 @@ export class MarketDataService {
     socket.addEventListener('open', () => {
       this.wsConnecting = false
       this.reconnectDelay = 1000
+      this.resetLiveOrderingState()
     })
     socket.addEventListener('message', (ev) => this.handleLiveMessage(String(ev.data)))
     socket.addEventListener('close', () => {
@@ -303,6 +322,80 @@ export class MarketDataService {
     }
     this.wsConnecting = false
     this.reconnectDelay = 1000
+    this.resetLiveOrderingState()
+  }
+
+  private resetLiveOrderingState() {
+    this.liveTradeSequence = 0
+    this.pendingLiveTrades = []
+    this.lastBookTimestampMs = 0
+    this.lastTradeTimestampMs = 0
+    this.timestampDebugBudget = TIMESTAMP_DEBUG_SAMPLES_PER_CONNECTION
+    this.liveTradeDedupe.clear()
+    this.liveTradeDedupeQueue = []
+    if (this.liveTradeFlushTimer) {
+      clearTimeout(this.liveTradeFlushTimer)
+      this.liveTradeFlushTimer = null
+    }
+  }
+
+  private normalizeLiveTimestamp(rawTimestamp: unknown, context: 'trade' | 'book'): { rawTimestamp: number | string; timestampMs: number } | null {
+    if (!this.instrument) return null
+    if (typeof rawTimestamp !== 'number' && typeof rawTimestamp !== 'string') {
+      console.warn('MARKET DATA TIMESTAMP MISSING', { context, rawTimestamp })
+      return null
+    }
+    const normalized = normalizeMarketTimestamp(rawTimestamp, this.instrument.liveTimestampUnit)
+    if (!normalized) return null
+    if (this.timestampDebugBudget > 0) {
+      this.timestampDebugBudget--
+      logNormalizedTimestamp(inferMarketDataSource(this.instrument), normalized.rawTimestamp, normalized.timestampMs, `${this.instrument.code}:${context}`)
+    }
+    return { rawTimestamp: normalized.rawTimestamp, timestampMs: normalized.timestampMs }
+  }
+
+  private makeTradeDedupeKey(msg: Record<string, unknown>, trade: Pick<Trade, 'price' | 'size' | 'side' | 'timestampMs'>): string {
+    const id = msg.tradeId ?? msg.id ?? msg.t
+    if (typeof id === 'string' || typeof id === 'number') return `id:${id}`
+    return `px:${trade.price}|sz:${trade.size}|sd:${trade.side}|ts:${trade.timestampMs}`
+  }
+
+  private rememberLiveTradeKey(key: string): boolean {
+    if (this.liveTradeDedupe.has(key)) return false
+    this.liveTradeDedupe.add(key)
+    this.liveTradeDedupeQueue.push(key)
+    while (this.liveTradeDedupeQueue.length > LIVE_DEDUPE_LIMIT) {
+      const oldest = this.liveTradeDedupeQueue.shift()
+      if (oldest) this.liveTradeDedupe.delete(oldest)
+    }
+    return true
+  }
+
+  private scheduleTradeFlush() {
+    if (this.liveTradeFlushTimer) return
+    this.liveTradeFlushTimer = setTimeout(() => {
+      this.liveTradeFlushTimer = null
+      this.flushPendingLiveTrades()
+    }, LIVE_REORDER_WINDOW_MS)
+  }
+
+  private flushPendingLiveTrades() {
+    if (!this.pendingLiveTrades.length) return
+    this.pendingLiveTrades.sort((a, b) => a.timestampMs - b.timestampMs || a.sequence - b.sequence)
+    const ready = this.pendingLiveTrades
+    this.pendingLiveTrades = []
+    for (const trade of ready) {
+      if (trade.timestampMs < this.lastTradeTimestampMs) {
+        console.warn('OUT OF ORDER MARKET DATA', {
+          kind: 'trade',
+          previousTimestampMs: this.lastTradeTimestampMs,
+          currentTimestampMs: trade.timestampMs,
+          trade,
+        })
+      }
+      this.lastTradeTimestampMs = Math.max(this.lastTradeTimestampMs, trade.timestampMs)
+      this.emit('trade', trade)
+    }
   }
 
   private sendSubscribe(symbol: string) {
@@ -325,8 +418,24 @@ export class MarketDataService {
     if (typeof msg.symbol === 'string' && msg.symbol !== this.wsSymbol) return
 
     if (msg.type === 'trade') {
+      const normalizedTimestamp = this.normalizeLiveTimestamp(msg.timestamp, 'trade')
+      if (!normalizedTimestamp) return
       const side: Side = msg.side === 'buy' ? 'B' : msg.side === 'sell' ? 'S' : 'B'
-      this.emit('trade', { price: Number(msg.price), size: Number(msg.size), side, ts: Number(msg.timestamp) })
+      const trade: BufferedLiveTrade = {
+        price: Number(msg.price),
+        size: Number(msg.size),
+        side,
+        timestampMs: normalizedTimestamp.timestampMs,
+        ts: normalizedTimestamp.timestampMs,
+        source: inferMarketDataSource(this.instrument!),
+        rawTimestamp: normalizedTimestamp.rawTimestamp,
+        tradeId: typeof msg.tradeId === 'string' || typeof msg.tradeId === 'number' ? String(msg.tradeId) : undefined,
+        sequence: ++this.liveTradeSequence,
+      }
+      trade.dedupeKey = this.makeTradeDedupeKey(msg, trade)
+      if (!this.rememberLiveTradeKey(trade.dedupeKey)) return
+      this.pendingLiveTrades.push(trade)
+      this.scheduleTradeFlush()
     } else if (msg.type === 'book') {
       // Backend peut envoyer un carnet vide/à sens unique (feed thin, ex. contrats Micro) —
       // tous les consommateurs (AnalysisEngine/PressureEngine) supposent bids[0]/asks[0] non
@@ -334,7 +443,27 @@ export class MarketDataService {
       const bids = msg.bids as [number, number][] | undefined
       const asks = msg.asks as [number, number][] | undefined
       if (!bids?.length || !asks?.length) return
-      this.emit('book', { bids, asks, ts: Number(msg.timestamp) })
+      const normalizedTimestamp = this.normalizeLiveTimestamp(msg.timestamp, 'book')
+      if (!normalizedTimestamp) return
+      const book: BookSnapshot = {
+        bids,
+        asks,
+        timestampMs: normalizedTimestamp.timestampMs,
+        ts: normalizedTimestamp.timestampMs,
+        source: inferMarketDataSource(this.instrument!),
+        rawTimestamp: normalizedTimestamp.rawTimestamp,
+      }
+      if (book.timestampMs < this.lastBookTimestampMs) {
+        console.warn('OUT OF ORDER MARKET DATA', {
+          kind: 'book',
+          previousTimestampMs: this.lastBookTimestampMs,
+          currentTimestampMs: book.timestampMs,
+          book,
+        })
+        return
+      }
+      this.lastBookTimestampMs = book.timestampMs
+      this.emit('book', book)
     } else if (msg.type === 'status') {
       this.liveMode = msg.status === 'live' ? 'LIVE' : msg.status === 'reconnecting' ? 'RECONNECTING' : 'CONNECTING'
       this.emitLiveStatus()
@@ -494,7 +623,14 @@ export class MarketDataService {
       this.asks[i] = [p, decay ? this.randSize() : Math.max(1, Math.round(prevSize * (0.9 + Math.random() * 0.22)))]
     }
 
-    const book: BookSnapshot = { bids: [...this.bids], asks: [...this.asks], ts: now }
+    const book: BookSnapshot = {
+      bids: [...this.bids],
+      asks: [...this.asks],
+      timestampMs: now,
+      ts: now,
+      source: 'simulation',
+      rawTimestamp: now,
+    }
     this.emit('book', book)
     this.lastMsgCount++
 
@@ -510,7 +646,15 @@ export class MarketDataService {
         : Math.random() > 0.985
           ? Math.round(40 + Math.random() * 150)
           : Math.round(1 + Math.random() * 14)
-      const trade: Trade = { price, size, side, ts: now }
+      const trade: Trade = {
+        price,
+        size,
+        side,
+        timestampMs: now,
+        ts: now,
+        source: 'simulation',
+        rawTimestamp: now,
+      }
       this.emit('trade', trade)
       this.lastMsgCount++
     }
@@ -639,7 +783,7 @@ export class AnalysisEngine {
   readonly instrument: Instrument
   private tradeSizes: number[] = []
   private trades: Trade[] = []
-  private priceHist: { ts: number; price: number }[] = []
+  private priceHist: { timestampMs: number; price: number }[] = []
   private latestBook: BookSnapshot | null = null
   private _cvd = 0
   private vwapPV = 0
@@ -658,7 +802,7 @@ export class AnalysisEngine {
 
   // ---- État dédié à poll() (détecteur d'événements SIGNALS) ------------------
   private levels = new Map<number, LevelRecord>()
-  private mids: { ts: number; mid: number }[] = []
+  private mids: { timestampMs: number; mid: number }[] = []
   private bookAvgSize = 1
   private thr: Record<string, number> = {}
   private pendingBreak: { dir: 1 | -1; level: number; ts: number } | null = null
@@ -672,12 +816,29 @@ export class AnalysisEngine {
     this.instrument = instrument
   }
 
+  private insertSortedPoint<T extends { timestampMs: number }>(points: T[], point: T, label: string, maxLength: number) {
+    const last = points[points.length - 1]
+    if (!last || point.timestampMs >= last.timestampMs) {
+      points.push(point)
+    } else {
+      console.warn('OUT OF ORDER MARKET DATA', {
+        kind: label,
+        previous: last,
+        current: point,
+      })
+      let i = points.length - 1
+      while (i >= 0 && points[i].timestampMs > point.timestampMs) i--
+      points.splice(i + 1, 0, point)
+    }
+    while (points.length > maxLength) points.shift()
+  }
+
   onBook(book: BookSnapshot) {
     this.latestBook = book
     const tick = this.instrument.tick
     const mid = (book.bids[0][0] + book.asks[0][0]) / 2
-    this.mids.push({ ts: book.ts, mid })
-    while (this.mids.length && book.ts - this.mids[0].ts > 150000) this.mids.shift()
+    this.insertSortedPoint(this.mids, { timestampMs: book.timestampMs, mid }, 'book-mid', 2400)
+    while (this.mids.length && book.timestampMs - this.mids[0].timestampMs > 150000) this.mids.shift()
 
     let sum = 0
     let n = 0
@@ -715,12 +876,10 @@ export class AnalysisEngine {
 
   onTrade(trade: Trade) {
     this._cvd += trade.side === 'B' ? trade.size : -trade.size
-    this.trades.push(trade)
-    if (this.trades.length > 1200) this.trades.shift()
+    this.insertSortedPoint(this.trades, trade, 'trade', 1200)
     this.tradeSizes.push(trade.size)
     if (this.tradeSizes.length > 300) this.tradeSizes.shift()
-    this.priceHist.push({ ts: trade.ts, price: trade.price })
-    if (this.priceHist.length > 1200) this.priceHist.shift()
+    this.insertSortedPoint(this.priceHist, { timestampMs: trade.timestampMs, price: trade.price }, 'price-line', 1200)
     this.vwapPV += trade.price * trade.size
     this.vwapV += trade.size
     if (!this.openPrice) {
@@ -844,7 +1003,7 @@ export class AnalysisEngine {
 
   private midAt(now: number, agoMs: number): number {
     const target = now - agoMs
-    for (let i = this.mids.length - 1; i >= 0; i--) if (this.mids[i].ts <= target) return this.mids[i].mid
+    for (let i = this.mids.length - 1; i >= 0; i--) if (this.mids[i].timestampMs <= target) return this.mids[i].mid
     return this.mids.length ? this.mids[0].mid : 0
   }
 
@@ -917,10 +1076,13 @@ export class AnalysisEngine {
       }
     }
 
-    const w700 = this.trades.filter((t) => now - t.ts < 700)
+    const w700 = this.trades.filter((t) => now - t.timestampMs < 700)
     let bv = 0
     let sv = 0
-    for (const t of w700) (t.side === 'B' ? (bv += t.size) : (sv += t.size))
+    for (const t of w700) {
+      if (t.side === 'B') bv += t.size
+      else sv += t.size
+    }
     const move = (mid - this.midAt(now, 700)) / tick
     if (Math.abs(move) >= 4 && this.ok('sweep', 3500, now)) {
       const av = move > 0 ? bv : sv
@@ -929,7 +1091,7 @@ export class AnalysisEngine {
       }
     }
 
-    const w10 = this.trades.filter((t) => now - t.ts < 10000)
+    const w10 = this.trades.filter((t) => now - t.timestampMs < 10000)
     let d10 = 0
     let v10 = 0
     for (const t of w10) {
@@ -941,7 +1103,7 @@ export class AnalysisEngine {
     }
 
     if (now - this.rate5Ts > 5000) {
-      const r5 = this.trades.filter((t) => now - t.ts < 5000).length
+      const r5 = this.trades.filter((t) => now - t.timestampMs < 5000).length
       if (this.rate5Prev > 4) {
         const ratio = r5 / Math.max(1, this.rate5Prev)
         if (ratio > 2.4 && this.ok('accel', 15000, now)) this.pushPollEvent(now, 'ACCELERATION', mid, 45 + 30 * Math.min(1, ratio / 4), `Tape speed ×${ratio.toFixed(1)} — participation expanding`)
@@ -965,7 +1127,7 @@ export class AnalysisEngine {
     let hi = -Infinity
     let lo = Infinity
     for (const m of this.mids) {
-      if (now - m.ts > 4000 && now - m.ts < 90000) {
+      if (now - m.timestampMs > 4000 && now - m.timestampMs < 90000) {
         if (m.mid > hi) hi = m.mid
         if (m.mid < lo) lo = m.mid
       }
@@ -995,7 +1157,7 @@ export class AnalysisEngine {
       let n = 0
       let prev: number | null = null
       for (const m of this.mids) {
-        if (now - m.ts > ms1 || now - m.ts < ms0) continue
+        if (now - m.timestampMs > ms1 || now - m.timestampMs < ms0) continue
         if (prev !== null) {
           const dd = (m.mid - prev) / tick
           s += dd * dd
@@ -1051,13 +1213,23 @@ export class AnalysisEngine {
 
     let buy30 = 0
     let sell30 = 0
-    for (const t of this.trades) if (now - t.ts <= 30000) (t.side === 'B' ? (buy30 += t.size) : (sell30 += t.size))
+    for (const t of this.trades) {
+      if (now - t.timestampMs <= 30000) {
+        if (t.side === 'B') buy30 += t.size
+        else sell30 += t.size
+      }
+    }
     const vol30 = buy30 + sell30
     const delta30 = buy30 - sell30
 
     let buy12 = 0
     let sell12 = 0
-    for (const t of this.trades) if (now - t.ts <= 12000) (t.side === 'B' ? (buy12 += t.size) : (sell12 += t.size))
+    for (const t of this.trades) {
+      if (now - t.timestampMs <= 12000) {
+        if (t.side === 'B') buy12 += t.size
+        else sell12 += t.size
+      }
+    }
     const tot12 = buy12 + sell12
     const buyRatio = tot12 ? buy12 / tot12 : 0.5
     const hasFlow = tot12 >= avg * 3
@@ -1067,7 +1239,7 @@ export class AnalysisEngine {
     const priceNow = this.priceHist.length ? this.priceHist[this.priceHist.length - 1].price : (this.latestBook.bids[0][0] + this.latestBook.asks[0][0]) / 2
     let priceThen = priceNow
     for (const p of this.priceHist) {
-      if (now - p.ts <= 30000) {
+      if (now - p.timestampMs <= 30000) {
         priceThen = p.price
         break
       }
@@ -1075,7 +1247,7 @@ export class AnalysisEngine {
     const move30ticks = Math.round((priceNow - priceThen) / tick)
 
     let count10 = 0
-    for (const t of this.trades) if (now - t.ts <= 10000) count10++
+    for (const t of this.trades) if (now - t.timestampMs <= 10000) count10++
     const tradeRate = count10 / 10
 
     const wallThreshold = avg * 3

@@ -10,16 +10,24 @@ export interface Instrument {
   /** Groupe d'affichage dans le sélecteur complet (EQUITY INDEX, ENERGY, ...) */
   grp: string
   exch: string
+  assetClass: 'future' | 'crypto'
+  marketType: 'centralized' | 'spot'
   /** Incrément de prix minimal */
   tick: number
+  /** Alias explicite pour les nouveaux call-sites. */
+  tickSize: number
   /** Décimales affichées */
   dec: number
+  /** Alias explicite pour les nouveaux call-sites. */
+  pricePrecision: number
   /** Prix de base utilisé pour amorcer la simulation */
   base: number
   /** Taille de lot minimale */
   lot: number
   /** Valeur en $ d'un tick */
   tickVal: number
+  /** Contrat temporel natif du provider live avant normalisation interne. */
+  liveTimestampUnit: MarketTimestampUnit
   /**
    * true si le backend Databento (server/src/config.js DEFAULT_SYMBOL_TABLE) route ce code
    * vers un symbole live par défaut. false = catalogue affiché pour parité, mais données en
@@ -27,6 +35,10 @@ export interface Instrument {
    */
   live: boolean
 }
+
+export type MarketTimestampUnit = 'milliseconds' | 'nanoseconds'
+
+export type MarketDataSource = 'simulation' | 'databento' | 'crypto-exchange'
 
 export type Side = 'B' | 'S'
 
@@ -36,14 +48,26 @@ export type BookLevel = [price: number, size: number]
 export interface BookSnapshot {
   bids: BookLevel[]
   asks: BookLevel[]
+  /** Unité interne unique pour tout le moteur. */
+  timestampMs: number
+  /** Alias rétrocompatible ; même valeur que timestampMs. */
   ts: number
+  source: MarketDataSource
+  rawTimestamp: number | string
 }
 
 export interface Trade {
   price: number
   size: number
   side: Side
+  /** Unité interne unique pour tout le moteur. */
+  timestampMs: number
+  /** Alias rétrocompatible ; même valeur que timestampMs. */
   ts: number
+  source: MarketDataSource
+  rawTimestamp: number | string
+  tradeId?: string
+  dedupeKey?: string
 }
 
 export interface TimeframeConfig {

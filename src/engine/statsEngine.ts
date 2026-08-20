@@ -64,7 +64,7 @@ export function buildStatsRows(
   }
   const now = Date.now()
   let d10 = 0
-  for (const t of analysis.recentTrades) if (now - t.ts < 10000) d10 += t.side === 'B' ? t.size : -t.size
+  for (const t of analysis.recentTrades) if (now - t.timestampMs < 10000) d10 += t.side === 'B' ? t.size : -t.size
   R2('Delta velocity', (d10 >= 0 ? '+' : '') + (d10 / 10).toFixed(1) + '/S', d10 >= 0 ? CY : RS)
   R2('Icebergs', String(counts.ice), counts.ice ? CY : GREY)
   R2('Absorptions', String(counts.abs))

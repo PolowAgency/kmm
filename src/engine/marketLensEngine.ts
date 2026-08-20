@@ -4,6 +4,7 @@ import type { BookSnapshot, Instrument, Trade } from './types'
 
 const SPAN = 161
 const HALF = 80
+const MAX_HEATMAP_ROWS = 600
 // Diviseur taille carnet → intensité couleur — même valeur et même raison que le web
 // (TERMINAL/app/terminal-v2/components/modules/lens/lensEngine.ts) : calibré pour un flux live où
 // les murs de carnet pèsent plus lourd que la taille moyenne d'un trade.
@@ -187,7 +188,8 @@ export class MarketLensEngine {
 
   private advanceRaster(col: HeatColumn) {
     if (!this.buf || !this.buf2) return
-    const rows = Math.floor(this.height / this.rowH)
+    const rows = Math.min(MAX_HEATMAP_ROWS, Math.floor(this.height / this.rowH))
+    if (rows <= 0) return
     const half = rows >> 1
     let dy = 0
     if (Math.abs(col.midT - this.center) > rows * 0.16) {
@@ -292,7 +294,8 @@ export class MarketLensEngine {
 
   getViewport(): LensViewport | null {
     if (!this.width || !this.height) return null
-    const rows = Math.floor(this.height / this.rowH)
+    const rows = Math.min(MAX_HEATMAP_ROWS, Math.floor(this.height / this.rowH))
+    if (rows <= 0) return null
     return {
       width: this.width,
       height: this.height,
