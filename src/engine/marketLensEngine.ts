@@ -193,7 +193,15 @@ export class MarketLensEngine {
     const half = rows >> 1
     let dy = 0
     if (Math.abs(col.midT - this.center) > rows * 0.16) {
-      const shift = Math.round(col.midT - this.center)
+      // Rattrapage PROPORTIONNEL (fraction constante de l'écart par colonne), pas un saut plein
+      // d'un coup — port du fix web (TERMINAL/lensEngine.ts, commits 2244b58/640801e) : sur un
+      // instrument au tick très fin face à sa volatilité (BTC : tick 0.1$, mouvements de
+      // plusieurs $/s), un rattrapage complet en un seul bond fait "sauter" la ligne de prix et
+      // le raster se redessine par saccades ("part dans tous les sens"). Une fraction constante
+      // converge exponentiellement vite (~90% résorbé en ~5 colonnes) tout en restant fluide.
+      const gap = col.midT - this.center
+      let shift = Math.round(gap * 0.4)
+      if (shift === 0) shift = Math.sign(gap)
       this.center += shift
       dy = shift * this.rowH
     }

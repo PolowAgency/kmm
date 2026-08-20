@@ -1250,7 +1250,15 @@ export class AnalysisEngine {
     for (const t of this.trades) if (now - t.timestampMs <= 10000) count10++
     const tradeRate = count10 / 10
 
-    const wallThreshold = avg * 3
+    // Comparé à la taille moyenne du CARNET (this.bookAvgSize, déjà maintenue par onBook()),
+    // pas à la taille moyenne des TRADES (avg) : en LIVE tous les instruments tournent en mbp-1
+    // (1 seul niveau bid/ask, feed Databento) — sur un carnet profond (BTC spot) une taille de
+    // trade moyenne est un proxy correct, mais sur un future fin (GC/Micro Gold) elle n'a aucun
+    // rapport avec la taille de carnet réelle, et le seuil n'était quasiment jamais franchi (BUY
+    // WALL/SELL WALL n'apparaissaient qu'sur BTC). Multiplicateur aussi assoupli (×3 → ×2) :
+    // en mbp-1, bookAvgSize est la moyenne des 2 seuls niveaux connus (bid+ask), donc ×3 exigeait
+    // qu'un côté pèse ~5x l'autre pour déclencher — trop strict pour un signal utile.
+    const wallThreshold = this.bookAvgSize * 2
     const wallsAbove: WallLevel[] = []
     const wallsBelow: WallLevel[] = []
     for (const [p, s] of this.latestBook.asks) if (s >= wallThreshold) wallsAbove.push({ price: p.toFixed(dec), size: Math.round(s) })
