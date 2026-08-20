@@ -1,0 +1,589 @@
+{
+  "course": {
+    "slug": "masterclass-xauusd-gold",
+    "title": "Masterclass XAUUSD Gold",
+    "subtitle": "Le chemin vers la rentabilité",
+    "description": "Programme en 7 jours pour comprendre le trading de l'or (XAUUSD) : des fondamentaux à la lecture du graphique, jusqu'à la discipline et la gestion du risque.",
+    "level": "debutant",
+    "position": 1,
+    "sequential_unlock": true,
+    "default_pass_score": 70
+  },
+  "modules": [
+    {
+      "slug": "fondamentaux",
+      "title": "Les fondamentaux",
+      "description": "Comprendre ce qu'on trade et comment lire un prix.",
+      "position": 1,
+      "lessons": [
+        {
+          "slug": "jour-1-introduction-trading-xauusd",
+          "title": "Jour 1 — Introduction au trading & XAUUSD",
+          "position": 1,
+          "content_type": "image",
+          "asset": "jour-1.png",
+          "summary": "Ce qu'est le trading, ce qu'est l'or (XAUUSD), la différence entre achat et vente, et les sessions de marché.",
+          "objectives": [
+            "Comprendre ce qu'est le trading",
+            "Comprendre ce qu'est l'or (XAUUSD)",
+            "Connaître les sessions de marché",
+            "Connaître le concept achat vs vente",
+            "Commencer son parcours avec discipline"
+          ],
+          "homework": [
+            "Ouvrir TradingView",
+            "Regarder XAUUSD pendant 20 minutes",
+            "Ne pas placer de trade",
+            "Écrire une chose apprise"
+          ],
+          "quote": "De petits pas aujourd'hui, de grands résultats demain.",
+          "exercise": {
+            "pass_score": 70,
+            "questions": [
+              {
+                "type": "single_choice",
+                "prompt": "Que représente la paire XAUUSD ?",
+                "options": [
+                  "L'or coté en dollar américain",
+                  "L'argent coté en dollar américain",
+                  "L'or coté en euro",
+                  "L'indice du dollar américain"
+                ],
+                "answer_index": 0,
+                "explanation": "XAU correspond à l'or et USD au dollar américain."
+              },
+              {
+                "type": "true_false",
+                "prompt": "Quand vous tradez le XAUUSD, vous achetez de l'or physique.",
+                "options": ["Vrai", "Faux"],
+                "answer_index": 1,
+                "explanation": "Vous n'achetez pas l'or, vous tradez le mouvement de son prix."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Le prix de l'or est à 3400 et vous anticipez une baisse vers 3385. Que faites-vous ?",
+                "options": [
+                  "Vous achetez",
+                  "Vous vendez",
+                  "Vous attendez la clôture de la session",
+                  "Vous doublez votre position"
+                ],
+                "answer_index": 1,
+                "explanation": "On vend quand on anticipe une baisse du prix, on achète quand on anticipe une hausse."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Quels sont les horaires de la session de Londres ?",
+                "options": [
+                  "00h00 – 09h00 GMT",
+                  "07h00 – 16h00 GMT",
+                  "12h00 – 21h00 GMT",
+                  "22h00 – 07h00 GMT"
+                ],
+                "answer_index": 1,
+                "explanation": "Londres ouvre à 07h00 GMT et ferme à 16h00 GMT."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Quel est considéré comme le meilleur moment pour trader ?",
+                "options": [
+                  "L'ouverture de Sydney",
+                  "Le chevauchement Londres / New York",
+                  "La fin de la session de Tokyo",
+                  "Le week-end"
+                ],
+                "answer_index": 1,
+                "explanation": "Le chevauchement entre Londres et New York concentre le plus de volume."
+              }
+            ]
+          }
+        },
+        {
+          "slug": "jour-2-comprendre-les-chandeliers",
+          "title": "Jour 2 — Comprendre les chandeliers",
+          "position": 2,
+          "content_type": "image",
+          "asset": "jour-2.png",
+          "summary": "L'anatomie d'un chandelier, la différence entre haussier et baissier, et les règles clés de lecture.",
+          "objectives": [
+            "Comprendre l'anatomie du chandelier",
+            "Identifier les chandeliers haussiers",
+            "Identifier les chandeliers baissiers",
+            "Comprendre les mèches (wicks)",
+            "Regarder 50 chandeliers sur XAUUSD sans placer de trade"
+          ],
+          "homework": [
+            "Ouvrir TradingView",
+            "Regarder XAUUSD 20 minutes",
+            "Ne pas placer de trade",
+            "Écrire une chose apprise"
+          ],
+          "quote": "De petits pas aujourd'hui, de grands résultats demain.",
+          "exercise": {
+            "pass_score": 70,
+            "questions": [
+              {
+                "type": "single_choice",
+                "prompt": "Quelles sont les quatre informations données par un chandelier ?",
+                "options": [
+                  "Ouverture, plus haut, plus bas, clôture",
+                  "Volume, spread, ouverture, clôture",
+                  "Support, résistance, tendance, volume",
+                  "Ouverture, moyenne, médiane, clôture"
+                ],
+                "answer_index": 0,
+                "explanation": "Chaque chandelier indique où le prix a commencé, son extrême haut, son extrême bas et où il a terminé."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Un chandelier haussier se caractérise par :",
+                "options": [
+                  "Une clôture plus basse que l'ouverture",
+                  "Une clôture plus haute que l'ouverture",
+                  "Une absence de mèche",
+                  "Un corps toujours plus grand que le précédent"
+                ],
+                "answer_index": 1,
+                "explanation": "Clôture au-dessus de l'ouverture : les acheteurs sont plus forts, le prix monte."
+              },
+              {
+                "type": "true_false",
+                "prompt": "Il est recommandé de prendre une décision de trade sur la base d'un seul chandelier.",
+                "options": ["Vrai", "Faux"],
+                "answer_index": 1,
+                "explanation": "Ne tradez jamais un seul chandelier : il faut le contexte et la tendance globale."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Que traduit un chandelier baissier ?",
+                "options": [
+                  "Les acheteurs sont plus forts",
+                  "Le marché est à l'équilibre",
+                  "Les vendeurs sont plus forts et le prix descend",
+                  "Une prochaine hausse est garantie"
+                ],
+                "answer_index": 2,
+                "explanation": "Clôture sous l'ouverture : la pression vendeuse domine sur la période."
+              },
+              {
+                "type": "true_false",
+                "prompt": "Les chandeliers permettent de prédire l'avenir du marché.",
+                "options": ["Vrai", "Faux"],
+                "answer_index": 1,
+                "explanation": "Les chandeliers racontent une histoire, celle du combat entre acheteurs et vendeurs. Ils ne prédisent pas l'avenir."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "lire-le-marche",
+      "title": "Lire le marché",
+      "description": "Structure, niveaux clés et direction du prix.",
+      "position": 2,
+      "lessons": [
+        {
+          "slug": "jour-3-structure-du-marche",
+          "title": "Jour 3 — Structure du marché (les bases)",
+          "position": 1,
+          "content_type": "image",
+          "asset": "jour-3.png",
+          "summary": "Les trois types de mouvements, le vocabulaire HH / HL / LH / LL, le BOS, et comment lire la structure sur un graphique.",
+          "objectives": [
+            "Comprendre les 3 types de tendances",
+            "Savoir identifier HH, HL, LH, LL",
+            "Repérer les BOS",
+            "Analyser XAUUSD sur plusieurs timeframes",
+            "Rester patient et observer le marché"
+          ],
+          "homework": [
+            "Ouvrir TradingView",
+            "Analyser XAUUSD sur 4H et 15m",
+            "Identifier la structure actuelle",
+            "Trouver 2 exemples de BOS",
+            "Prendre une capture et noter ses observations"
+          ],
+          "quote": "Maîtrisez la structure, maîtrisez le marché.",
+          "exercise": {
+            "pass_score": 70,
+            "questions": [
+              {
+                "type": "single_choice",
+                "prompt": "Que signifie HL (Higher Low) ?",
+                "options": [
+                  "Un sommet plus haut que le précédent",
+                  "Un creux plus haut que le précédent",
+                  "Un creux plus bas que le précédent",
+                  "Un sommet plus bas que le précédent"
+                ],
+                "answer_index": 1,
+                "explanation": "HL désigne un creux situé au-dessus du creux précédent, signe d'une structure haussière."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Une tendance baissière se reconnaît par la succession de :",
+                "options": [
+                  "HH et HL",
+                  "LH et LL",
+                  "HH et LL",
+                  "Aucun sommet ni creux identifiable"
+                ],
+                "answer_index": 1,
+                "explanation": "Des sommets plus bas (LH) et des creux plus bas (LL) définissent une structure baissière."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Qu'est-ce qu'un BOS (Break of Structure) ?",
+                "options": [
+                  "Le prix casse la structure précédente dans le sens de la tendance",
+                  "Le prix touche trois fois le même niveau",
+                  "Une bougie sans mèche",
+                  "Le passage d'une session à une autre"
+                ],
+                "answer_index": 0,
+                "explanation": "Le BOS confirme la continuation de la structure en cours."
+              },
+              {
+                "type": "true_false",
+                "prompt": "Dans un range, on observe des HH et des LL clairement identifiables.",
+                "options": ["Vrai", "Faux"],
+                "answer_index": 1,
+                "explanation": "En range il n'y a pas de HH ni de LL clairs : le prix évolue entre support et résistance."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Comment articuler les timeframes ?",
+                "options": [
+                  "Le timeframe bas donne la direction, le haut donne l'entrée",
+                  "Le timeframe élevé donne la direction, le bas donne l'entrée",
+                  "Un seul timeframe suffit",
+                  "Il faut ignorer le timeframe élevé en range"
+                ],
+                "answer_index": 1,
+                "explanation": "Le HTF donne le sens général, le LTF affine le point d'entrée. Les deux doivent être alignés."
+              }
+            ]
+          }
+        },
+        {
+          "slug": "jour-4-support-et-resistance",
+          "title": "Jour 4 — Support & résistance",
+          "position": 2,
+          "content_type": "image",
+          "asset": "jour-4.png",
+          "summary": "Définition des zones clés, force d'un niveau, niveaux cassés, et méthode de tracé en 5 étapes.",
+          "objectives": [
+            "Comprendre le concept de support & résistance",
+            "Identifier les niveaux clés sur le graphique",
+            "Repérer les niveaux forts et faibles",
+            "Utiliser ces niveaux pour planifier ses trades",
+            "Être patient et attendre la réaction du prix"
+          ],
+          "homework": [
+            "Ouvrir TradingView",
+            "Analyser XAUUSD sur 4H et 15m",
+            "Tracer au moins 3 supports",
+            "Tracer au moins 3 résistances",
+            "Observer comment le prix réagit",
+            "Prendre une capture et noter ses observations"
+          ],
+          "quote": "Les meilleurs traders ne prédisent pas le marché, ils réagissent aux niveaux importants.",
+          "exercise": {
+            "pass_score": 70,
+            "questions": [
+              {
+                "type": "single_choice",
+                "prompt": "Un niveau touché trois fois ou plus, avec des réactions importantes, est considéré comme :",
+                "options": [
+                  "Un niveau faible",
+                  "Un niveau fort",
+                  "Un niveau cassé",
+                  "Un niveau sans valeur"
+                ],
+                "answer_index": 1,
+                "explanation": "Plus le prix respecte un niveau, plus ce niveau devient fiable."
+              },
+              {
+                "type": "true_false",
+                "prompt": "Il vaut mieux tracer une ligne fine qu'une zone horizontale.",
+                "options": ["Vrai", "Faux"],
+                "answer_index": 1,
+                "explanation": "La zone donne plus de précision et évite les faux signaux."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Que peut devenir un support cassé avec force ?",
+                "options": [
+                  "Un support encore plus fort",
+                  "Une résistance",
+                  "Un niveau neutre sans effet",
+                  "Une zone de range garantie"
+                ],
+                "answer_index": 1,
+                "explanation": "Un support devenu résistance peut ensuite rejeter le prix, et inversement."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "À quoi servent concrètement les niveaux de support et résistance ?",
+                "options": [
+                  "À placer un stop loss logique et fixer des objectifs de take profit",
+                  "À garantir la direction du prix",
+                  "À remplacer l'analyse de la tendance",
+                  "À déterminer la taille du spread"
+                ],
+                "answer_index": 0,
+                "explanation": "Ils servent à trouver des entrées à haute probabilité, placer un SL logique et définir les TP."
+              },
+              {
+                "type": "true_false",
+                "prompt": "On peut trader contre un niveau fort tant qu'on a une bonne intuition.",
+                "options": ["Vrai", "Faux"],
+                "answer_index": 1,
+                "explanation": "Règle d'or : ne jamais trader contre un niveau fort sans confirmation."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "discipline-et-execution",
+      "title": "Discipline & exécution",
+      "description": "Transformer la lecture du marché en processus répétable.",
+      "position": 3,
+      "lessons": [
+        {
+          "slug": "jour-5-regles-et-discipline",
+          "title": "Jour 5 — Règles & discipline",
+          "position": 1,
+          "content_type": "image",
+          "asset": "jour-5.png",
+          "summary": "Pourquoi des règles, les règles clés, la gestion du risque en pourcentage, la routine quotidienne et les erreurs à éviter.",
+          "objectives": [
+            "Établir des règles claires",
+            "Respecter son plan",
+            "Gérer son risque",
+            "Rester discipliné",
+            "Devenir constant"
+          ],
+          "homework": [
+            "Ouvrir TradingView",
+            "Analyser XAUUSD sur 4H et 15m",
+            "Rédiger ses règles de trading",
+            "Backtester 1 setup",
+            "Tenir un journal de trading",
+            "Noter 1 chose à améliorer"
+          ],
+          "quote": "La discipline est le pont entre vos objectifs et vos accomplissements.",
+          "exercise": {
+            "pass_score": 70,
+            "questions": [
+              {
+                "type": "single_choice",
+                "prompt": "Quel pourcentage de capital risquer au maximum par trade ?",
+                "options": ["1 à 2 %", "5 à 10 %", "20 %", "Cela dépend de la confiance dans le setup"],
+                "answer_index": 0,
+                "explanation": "La règle numéro 1 est de préserver son capital : 1 à 2 % maximum par trade."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Avec un capital de 10 000 €, combien représente un risque de 1 % ?",
+                "options": ["10 €", "100 €", "200 €", "1 000 €"],
+                "answer_index": 1,
+                "explanation": "1 % de 10 000 € correspond à 100 €. À 2 %, le risque serait de 200 €."
+              },
+              {
+                "type": "true_false",
+                "prompt": "Si le trade évolue contre vous, il est acceptable de déplacer votre stop loss pour lui laisser de la marge.",
+                "options": ["Vrai", "Faux"],
+                "answer_index": 1,
+                "explanation": "Le stop loss ne se déplace pas dans ce sens : c'est une des erreurs listées à éviter."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Complétez : un bon plan sans discipline égale…",
+                "options": [
+                  "Un résultat moyen",
+                  "Un échec",
+                  "Une direction sans destination",
+                  "Une réussite lente"
+                ],
+                "answer_index": 1,
+                "explanation": "Un bon plan sans discipline mène à l'échec ; la discipline sans plan, c'est une direction sans destination."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Quel est l'ordre correct des étapes du plan de trading ?",
+                "options": [
+                  "Setup, stratégie, résultats, gestion du risque, gestion du trade",
+                  "Stratégie, setup, gestion du risque, gestion du trade, résultats",
+                  "Gestion du risque, résultats, stratégie, setup, gestion du trade",
+                  "Stratégie, gestion du trade, setup, résultats, gestion du risque"
+                ],
+                "answer_index": 1,
+                "explanation": "Savoir quoi trader, trouver l'entrée, protéger le capital, gérer le trade, puis analyser pour s'améliorer."
+              }
+            ]
+          }
+        },
+        {
+          "slug": "jour-6-tendances",
+          "title": "Jour 6 — Les tendances, la direction du marché",
+          "position": 2,
+          "content_type": "image",
+          "asset": "jour-6.png",
+          "summary": "Identifier une tendance, distinguer continuité et renversement, et travailler dans le sens du marché.",
+          "objectives": [
+            "Identifier les 3 types de tendances",
+            "Savoir lire HH, HL, LH, LL",
+            "Trouver les entrées dans le sens de la tendance",
+            "Éviter de trader contre tendance",
+            "Avoir un plan clair avant chaque trade"
+          ],
+          "homework": [
+            "Ouvrir TradingView",
+            "Analyser XAUUSD sur 4H et 15m",
+            "Identifier la tendance actuelle",
+            "Trouver 2 setups dans le sens de la tendance",
+            "Noter ses observations"
+          ],
+          "quote": "La tendance est simple, le plus dur c'est d'être patient et discipliné pour l'exploiter.",
+          "exercise": {
+            "pass_score": 70,
+            "questions": [
+              {
+                "type": "single_choice",
+                "prompt": "Le prix évolue au-dessus de sa moyenne mobile. Cela indique plutôt :",
+                "options": [
+                  "Une tendance baissière",
+                  "Une tendance haussière",
+                  "Un range",
+                  "Un renversement immédiat"
+                ],
+                "answer_index": 1,
+                "explanation": "Prix au-dessus de la moyenne mobile : biais haussier. En dessous : biais baissier."
+              },
+              {
+                "type": "true_false",
+                "prompt": "Une bonne pratique consiste à anticiper le sommet ou le creux exact d'une tendance.",
+                "options": ["Vrai", "Faux"],
+                "answer_index": 1,
+                "explanation": "Ne cherchez pas le sommet ou le creux : attendez la confirmation du renversement."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Quel élément signale un renversement de tendance plutôt qu'une simple correction ?",
+                "options": [
+                  "Une petite correction dans le sens inverse",
+                  "Une cassure de structure (BOS) accompagnée de signaux de divergence",
+                  "Une bougie de forte amplitude isolée",
+                  "L'ouverture de la session de Tokyo"
+                ],
+                "answer_index": 1,
+                "explanation": "La cassure de structure et les divergences annoncent un nouveau trend dans l'autre sens."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Où se trouvent généralement les meilleures opportunités ?",
+                "options": [
+                  "Dans les pullbacks d'une tendance forte",
+                  "Au sommet exact d'une tendance",
+                  "Dans les ranges sans direction",
+                  "Juste avant la clôture hebdomadaire"
+                ],
+                "answer_index": 0,
+                "explanation": "Les pullbacks permettent d'entrer dans le sens de la tendance à un meilleur prix."
+              },
+              {
+                "type": "true_false",
+                "prompt": "Une bonne entrée dans le sens de la tendance vaut mieux que dix bonnes entrées contre elle.",
+                "options": ["Vrai", "Faux"],
+                "answer_index": 0,
+                "explanation": "C'est le principe central de la leçon : travailler avec le marché, pas contre lui."
+              }
+            ]
+          }
+        },
+        {
+          "slug": "jour-7-regles-d-or-et-mental",
+          "title": "Jour 7 — Règles d'or & mental du trader",
+          "position": 3,
+          "content_type": "image",
+          "asset": "jour-7.png",
+          "summary": "Les règles d'or, la checklist avant chaque trade, les erreurs à éviter et l'état d'esprit gagnant.",
+          "objectives": [
+            "Respecter les règles d'or",
+            "Suivre la checklist avant chaque trade",
+            "Rester discipliné toute la journée",
+            "Noter ses trades et ses émotions",
+            "S'améliorer de 1 % chaque jour"
+          ],
+          "homework": [
+            "Ouvrir TradingView",
+            "Analyser XAUUSD sur 4H et 15m",
+            "Repérer au moins 2 setups",
+            "Noter ses plans de trade",
+            "Faire le bilan de la journée"
+          ],
+          "quote": "La discipline est le pont entre vos objectifs et vos accomplissements.",
+          "exercise": {
+            "pass_score": 70,
+            "questions": [
+              {
+                "type": "single_choice",
+                "prompt": "Quel ratio risque/rendement minimum figure dans la checklist avant trade ?",
+                "options": ["≥ 1:1", "≥ 1:2", "≥ 1:5", "Aucun, cela dépend du setup"],
+                "answer_index": 1,
+                "explanation": "La checklist exige un ratio risque/rendement d'au moins 1:2."
+              },
+              {
+                "type": "true_false",
+                "prompt": "Après une perte, augmenter son risque sur le trade suivant permet de se refaire plus vite.",
+                "options": ["Vrai", "Faux"],
+                "answer_index": 1,
+                "explanation": "Augmenter le risque après une perte fait partie des erreurs listées. Restez constant."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Complétez la règle : coupez les pertes tôt…",
+                "options": [
+                  "et coupez les gains aussi vite",
+                  "et laissez courir vos gains",
+                  "et doublez la position gagnante",
+                  "et fermez la journée immédiatement"
+                ],
+                "answer_index": 1,
+                "explanation": "Accepter ses pertes rapidement et laisser courir ses gains est une des règles d'or."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Lequel de ces éléments figure dans la checklist avant chaque trade ?",
+                "options": [
+                  "Mon stop loss est logique et défini",
+                  "J'ai au moins trois positions ouvertes",
+                  "Le marché vient de faire un nouveau plus haut",
+                  "J'ai récupéré ma perte de la veille"
+                ],
+                "answer_index": 0,
+                "explanation": "La checklist couvre tendance, zone d'entrée, risque ≤ 2 %, SL défini, TP défini, ratio ≥ 1:2 et état mental."
+              },
+              {
+                "type": "single_choice",
+                "prompt": "Que signifie « contrôlez ce que vous pouvez » ?",
+                "options": [
+                  "Contrôler la direction du marché",
+                  "Contrôler son plan, ses actions et sa discipline, et laisser le marché faire le reste",
+                  "Contrôler ses gains en fermant chaque trade rapidement",
+                  "Contrôler le spread de son broker"
+                ],
+                "answer_index": 1,
+                "explanation": "Personne ne connaît l'avenir : on travaille avec des probabilités et on maîtrise son propre processus."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, type ColorSchemeName } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
@@ -73,23 +74,30 @@ export default function RootLayout() {
   }, [initialize]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AnimatedSplashOverlay />
-      {accessState === 'loading' ? (
-        <LoadingGate />
-      ) : accessState === 'ready' ? (
-        <TerminalEngineProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <AppTabs />
-          </ThemeProvider>
-        </TerminalEngineProvider>
-      ) : (
-        <AccessGate accessState={accessState} colorScheme={colorScheme} />
-      )}
-    </QueryClientProvider>
+    // Racine requise par react-native-gesture-handler (sinon les gestes ne fonctionnent pas du
+    // tout sur Android, et de façon inconstante sur iOS) — ajouté pour les gestes du Market Lens
+    // (voir MarketLensCanvasInner.tsx), mais doit englober toute l'app par convention de la lib,
+    // pas juste l'écran concerné.
+    <GestureHandlerRootView style={styles.root}>
+      <QueryClientProvider client={queryClient}>
+        <AnimatedSplashOverlay />
+        {accessState === 'loading' ? (
+          <LoadingGate />
+        ) : accessState === 'ready' ? (
+          <TerminalEngineProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <AppTabs />
+            </ThemeProvider>
+          </TerminalEngineProvider>
+        ) : (
+          <AccessGate accessState={accessState} colorScheme={colorScheme} />
+        )}
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
