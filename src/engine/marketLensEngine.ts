@@ -28,6 +28,15 @@ export interface LensFrame {
   ribbon: SkPoint[]
 }
 
+export interface LensViewport {
+  width: number
+  height: number
+  rowH: number
+  rows: number
+  half: number
+  center: number
+}
+
 /**
  * Port scopé (premier jalon) du raster de liquidité de MarketLensEngine côté web — voir la
  * décision utilisateur "La Market Lens (heatmap) d'abord" : uniquement la heatmap qui défile +
@@ -53,6 +62,14 @@ export class MarketLensEngine {
 
   private colW = 3
   private rowH = 5
+  private readonly defaultRowH = 5
+  private readonly minRowH = 2
+  private readonly maxRowH = 12
+  // Décalage utilisateur (pan vertical, en lignes de prix) appliqué uniquement à l'affichage —
+  // `this.center` reste l'ancre de l'auto-suivi du marché (utilisée par advanceRaster() pour
+  // décider quand recentrer le raster), jamais modifiée par les gestes : voir viewCenter() plus
+  // bas, seul point où les deux se combinent pour le rendu (paintCol/ruban).
+  private userCenterOffset = 0
   private width = 0
   private height = 0
   private buf: SkSurface | null = null
@@ -118,6 +135,33 @@ export class MarketLensEngine {
     this.avgSize = this.avgSize * 0.985 + trade.size * 0.015
   }
 
+  /** Pan vertical (geste 1 doigt) — deltaRows en lignes de prix, positif = vers le passé/haut. */
+  pan(deltaRows: number) {
+    this.userCenterOffset += deltaRows
+  }
+
+  /** Zoom (pinch 2 doigts) — rowH cible en px, borné. Plus rowH est petit, plus de niveaux de
+   * prix tiennent à l'écran (zoom arrière) ; plus il est grand, moins il y en a (zoom avant). */
+  setZoom(rowH: number) {
+    this.rowH = Math.max(this.minRowH, Math.min(this.maxRowH, rowH))
+  }
+
+  get zoomRowH() {
+    return this.rowH
+  }
+
+  /** Double-tap — revient au suivi live centré, zoom par défaut. */
+  resetView() {
+    this.userCenterOffset = 0
+    this.rowH = this.defaultRowH
+  }
+
+  /** Centre effectif utilisé pour le rendu (paintCol/ruban) — combine l'ancre d'auto-suivi
+   * (this.center, jamais touchée par les gestes) et le décalage utilisateur (pan). */
+  private viewCenter() {
+    return this.center + this.userCenterOffset
+  }
+
   /** À appeler à cadence régulière (~60ms, comme la référence) pour faire avancer le raster. */
   pushColumn() {
     const book = this.latestBook
@@ -164,9 +208,10 @@ export class MarketLensEngine {
     this.buf2 = tmp
 
     const x = this.width - this.colW
-    this.paintCol(x, col, rows, half)
+    const viewCenter = this.viewCenter()
+    this.paintCol(x, col, rows, half, viewCenter)
 
-    const yNow = (half - (col.midT - this.center)) * this.rowH
+    const yNow = (half - (col.midT - viewCenter)) * this.rowH
     if (dy) for (const p of this.ribbon) p.y += dy
     for (const p of this.ribbon) p.x -= this.colW
     this.ribbon.push({ x: x + this.colW / 2, y: yNow })
@@ -179,14 +224,18 @@ export class MarketLensEngine {
    * web, adapté à l'API Skia : au lieu de `ctx.createLinearGradient().addColorStop()` appelé en
    * boucle, on accumule colors[]/positions[] puis un seul `Skia.Shader.MakeLinearGradient()`.
    */
-  private paintCol(x: number, col: HeatColumn, rows: number, half: number) {
+  private paintCol(x: number, col: HeatColumn, rows: number, half: number, viewCenter: number) {
     if (!this.buf) return
     const canvas = this.buf.getCanvas()
     const val = (i: number) => (i >= 0 && i < SPAN ? col.sizes[i] : 0)
     const colors: ReturnType<typeof Skia.Color>[] = []
     const positions: number[] = []
+    // viewCenter peut être fractionnaire (le pan accumule des deltas au pixel près) — arrondi ici
+    // uniquement, car c'est un index de tableau (col.sizes), contrairement au ruban (coordonnée
+    // de dessin, où le sous-pixel donne un mouvement plus fluide).
+    const viewCenterInt = Math.round(viewCenter)
     for (let r = 0; r < rows; r++) {
-      const i = this.center + (half - r) - col.base
+      const i = viewCenterInt + (half - r) - col.base
       const pos = Math.min(1, (r + 0.5) / rows)
       const v = val(i)
       if (v < -0.1) {
@@ -239,5 +288,25 @@ export class MarketLensEngine {
       height: this.height,
       ribbon: this.ribbon.map((p) => Skia.Point(p.x, p.y)),
     }
+  }
+
+  getViewport(): LensViewport | null {
+    if (!this.width || !this.height) return null
+    const rows = Math.floor(this.height / this.rowH)
+    return {
+      width: this.width,
+      height: this.height,
+      rowH: this.rowH,
+      rows,
+      half: rows >> 1,
+      center: this.viewCenter(),
+    }
+  }
+
+  projectPrice(price: number): number | null {
+    const viewport = this.getViewport()
+    if (!viewport) return null
+    const tick = Math.round(price / this.instrument.tick)
+    return (viewport.half - (tick - viewport.center)) * viewport.rowH
   }
 }
