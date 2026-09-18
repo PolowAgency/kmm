@@ -2,9 +2,9 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MarketLensCanvas } from '@/components/MarketLensCanvas';
+import { InstrumentSwitcher } from '@/components/instrument-switcher';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import { useTerminalEngine } from '@/engine/TerminalEngineContext';
 
 /**
  * Écran Market Lens — premier jalon (heatmap de liquidité qui défile + ligne de prix), voir
@@ -12,12 +12,10 @@ import { useTerminalEngine } from '@/engine/TerminalEngineContext';
  * Engine V9/particules/vue 3D de la référence web viendront dans une passe suivante.
  */
 export default function LensScreen() {
-  const { instrument } = useTerminalEngine();
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <ThemedText type="smallBold">{instrument.code}</ThemedText>
+        <InstrumentSwitcher />
         <ThemedText type="small" themeColor="textSecondary">
           MARKET LENS
         </ThemedText>
