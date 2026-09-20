@@ -4,11 +4,12 @@ import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
+import { AuctionAssistantCard } from '@/components/auction-assistant-card';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import { useTerminalEngine } from '@/engine/TerminalEngineContext';
 import type { AnalysisSummary, EventCounts, PollEvent } from '@/engine/marketDataService';
-import { MarketLensEngine, PROFILE_W } from '@/engine/marketLensEngine';
+import { MarketLensEngine, PROFILE_W, type AuctionState } from '@/engine/marketLensEngine';
 import { useTheme } from '@/hooks/use-theme';
 
 const RIBBON_COLOR = '#e8e8e8';
@@ -43,7 +44,7 @@ type RenderedEventOverlay = {
  * @/components/MarketLensCanvas.tsx (natif) / MarketLensCanvas.web.tsx (web).
  */
 export default function MarketLensCanvasInner() {
-  const { analysis, instrument, service, subscribeAlerts } = useTerminalEngine();
+  const { analysis, instrument, service, subscribeAlerts, getPressureSnapshot } = useTerminalEngine();
   const theme = useTheme();
   const engineRef = useRef<MarketLensEngine | null>(null);
   const summaryRef = useRef<AnalysisSummary | null>(null);
@@ -64,6 +65,7 @@ export default function MarketLensCanvasInner() {
   const [counts, setCounts] = useState<EventCounts>(analysis.eventCounts);
   const [wallItems, setWallItems] = useState<RenderedWallOverlay[]>([]);
   const [eventItems, setEventItems] = useState<RenderedEventOverlay[]>([]);
+  const [auctionState, setAuctionState] = useState<AuctionState | null>(null);
 
   useEffect(() => {
     const engine = new MarketLensEngine(instrument);
@@ -100,15 +102,26 @@ export default function MarketLensCanvasInner() {
       const now = Date.now();
       const nextSummary = analysis.summary(now);
       summaryRef.current = nextSummary;
+      const engine = engineRef.current;
+      // Alimente l'Auction Engine (voir setAnalysisSnapshot/setPressureScore/setSessionStats dans
+      // marketLensEngine.ts) — même principe que setAnalysisSnapshot côté web, poussé ici à la
+      // même cadence que le reste de l'UI plutôt qu'à 60ms (auctionTick() se limite de toute façon
+      // en interne à 1 recalcul/2s).
+      const stats = analysis.sessionStats();
+      engine?.setAnalysisSnapshot(nextSummary, analysis.cvd);
+      engine?.setPressureScore(getPressureSnapshot()?.score ?? 0);
+      if (stats) engine?.setSessionStats({ vol: stats.vol, openPrice: stats.openPrice, price: stats.price });
       startTransition(() => {
         setSummary(nextSummary);
         setCounts(analysis.eventCounts);
         setWallItems(projectWalls(nextSummary, engineRef.current, size.height));
         setEventItems(projectAlertEvents(alertEventsRef.current, engineRef.current, size.height));
+        const nextAuction = engine?.getAuctionState() ?? null;
+        setAuctionState(nextAuction ? { ...nextAuction } : null);
       });
     }, 250);
     return () => clearInterval(id);
-  }, [analysis, size.height]);
+  }, [analysis, size.height, getPressureSnapshot]);
 
   useEffect(() => {
     startTransition(() => {
@@ -224,6 +237,9 @@ export default function MarketLensCanvasInner() {
               )}
             </Canvas>
             <View pointerEvents="none" style={styles.overlayLayer}>
+              <View style={styles.auctionCardSlot}>
+                <AuctionAssistantCard state={auctionState} />
+              </View>
               {wallItems.map((wall) => {
                 const color = wall.tone === 'bid' ? theme.sideBid : wall.tone === 'ask' ? theme.sideAsk : theme.sideNeutral;
                 return (
@@ -366,6 +382,11 @@ const styles = StyleSheet.create({
   },
   overlayLayer: {
     ...StyleSheet.absoluteFill,
+  },
+  auctionCardSlot: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
   },
   wallOverlay: {
     position: 'absolute',
