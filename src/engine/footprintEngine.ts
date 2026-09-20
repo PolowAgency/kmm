@@ -1,11 +1,13 @@
 import { PaintStyle, Skia, type SkImage, type SkSurface } from '@shopify/react-native-skia'
 
+import type { ControlSnapshot } from './controlEngine'
 import { tfConfig } from './instruments'
 import type { Instrument, Trade } from './types'
 
 const BG = '#0a0c0f'
 const CY = '#35c8e0' // acheteurs
 const RS = '#e5484d' // vendeurs
+const GY = '#6b7683' // neutre
 
 /** Voir footprintEngine.ts côté web : même dérive flottante sur les tailles de trade réelles
  * (BTC notamment) sommées cellule par cellule, même correctif d'affichage. */
@@ -57,10 +59,12 @@ const GUT = 56
  * aussi `textItems` : la position/couleur/alignement de chaque libellé, calculés ici exactement
  * comme pour le dessin Skia, à charge du composant de les rendre en <Text> positionnés dessus.
  *
- * Non porté : la ligne de lecture synthétique "WINNING/ABS/AGGR" (setControlSnapshot côté web),
- * qui dépend du Market Control Engine (engine/controlEngine.ts, 396 lignes) — un moteur entier,
- * absent lui aussi de kmm-mobile, hors scope de cette passe. Le reste de la grille (l'essentiel du
- * module) ne dépend pas de lui.
+ * Ligne de lecture synthétique WINNING/ABS/AGGR (setControlSnapshot) : maintenant reliée
+ * (controlEngine.ts a été porté séparément) — 3 blocs de largeur fixe plutôt que le empilement à
+ * largeur variable de la référence (`ctx.measureText` cumulatif) : sans mesure de texte
+ * disponible ici (le texte n'est plus dessiné dans ce canvas, voir plus haut), une largeur fixe
+ * par segment est la façon la plus simple de rester aligné à droite sans deviner la largeur réelle
+ * de chaque valeur.
  *
  * Largeur du canvas dynamique (pas fixée au conteneur) : contrairement au web où seules les barres
  * qui tiennent dans la largeur visible sont dessinées (le reste de l'historique est juste perdu),
@@ -77,6 +81,7 @@ export class FootprintEngine {
   private height = 0
   private buf: SkSurface | null = null
   private textItems: FootprintTextItem[] = []
+  private control: ControlSnapshot | null = null
 
   constructor(instrument: Instrument) {
     this.instrument = instrument
@@ -86,6 +91,10 @@ export class FootprintEngine {
     if (id === this.timeframeId) return
     this.timeframeId = id
     this.bars = []
+  }
+
+  setControlSnapshot(snap: ControlSnapshot | null) {
+    this.control = snap
   }
 
   /** Hauteur du conteneur (fixe, vient du layout RN) — la largeur du buffer Skia est recalculée
@@ -188,9 +197,6 @@ export class FootprintEngine {
     axisPath.lineTo(W - GUT + 0.5, H)
     canvas.drawPath(axisPath, axisLine)
 
-    const cfg = tfConfig(this.timeframeId)
-    this.pushText(`FOOTPRINT — BID × ASK · ${cfg.fp >= 60 ? cfg.fp / 60 + 'M' : cfg.fp + 'S'} BARS`, 10, 9, 260, '#aeb8c2', 'left', 8.5, true)
-
     for (let i = 0; i < bars.length; i++) {
       const b = bars[i]
       const x0 = W - GUT - (bars.length - i) * BAR_W
@@ -269,5 +275,35 @@ export class FootprintEngine {
 
   getFrame(): { image: SkImage | null; width: number; height: number; textItems: FootprintTextItem[] } {
     return { image: this.buf ? this.buf.makeImageSnapshot() : null, width: this.width, height: this.height, textItems: this.textItems }
+  }
+
+  /**
+   * Titre + lecture synthétique WINNING/ABS/AGGR — voir setControlSnapshot. Volontairement HORS
+   * de getFrame()/draw() : ce sont des éléments de titre fixes (comme un en-tête de tableau), pas
+   * partie du contenu qui défile. Positionnés en coordonnées canvas comme le reste du texte
+   * (voir pushText plus haut), ils dérivaient hors champ au fil du temps quand le ScrollView
+   * suit automatiquement les barres les plus récentes — constaté à l'écran : au bout de quelques
+   * dizaines de secondes, le titre (ancré à l'extrémité GAUCHE, x=10, de tout l'historique)
+   * sortait du cadre pour de bon pendant que le canvas s'élargit vers la droite. Rendu par
+   * FootprintPanelInner comme une rangée fixe AU-DESSUS du ScrollView plutôt que dans le canvas
+   * qui défile.
+   */
+  getHeader(): { title: string; segments: { label: string; color: string }[] } {
+    const cfg = tfConfig(this.timeframeId)
+    const title = `FOOTPRINT — BID × ASK · ${cfg.fp >= 60 ? cfg.fp / 60 + 'M' : cfg.fp + 'S'} BARS`
+    if (!this.control) return { title, segments: [] }
+    const mc = this.control
+    const sTx = (v: number) => (v > 0.1 ? 'BUYERS' : v < -0.1 ? 'SELLERS' : '—')
+    const sCl = (v: number) => (v > 0.1 ? CY : v < -0.1 ? RS : GY)
+    const win = mc.regime === 'buyers' ? 'BUYERS' : mc.regime === 'sellers' ? 'SELLERS' : 'BALANCED'
+    const winC = mc.regime === 'buyers' ? CY : mc.regime === 'sellers' ? RS : GY
+    return {
+      title,
+      segments: [
+        { label: `AGGR ${sTx(mc.comp.tape)}`, color: sCl(mc.comp.tape) },
+        { label: `ABS ${sTx(mc.comp.abs)}`, color: sCl(mc.comp.abs) },
+        { label: `WINNING ${win}`, color: winC },
+      ],
+    }
   }
 }

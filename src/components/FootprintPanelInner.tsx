@@ -8,14 +8,14 @@ import { useTerminalEngine } from '@/engine/TerminalEngineContext';
 
 /**
  * Panneau Footprint — port de FootprintPanel.tsx côté web (module footprint/), voir
- * @/engine/footprintEngine.ts pour le détail du port et ce qui n'est délibérément pas repris
- * (ligne de lecture WINNING/ABS/AGGR, Market Control Engine). Enveloppé dans un ScrollView
- * horizontal plutôt que de ne dessiner que les barres qui tiennent dans la largeur visible comme
- * le web : sur un écran mobile étroit, ça aurait réduit l'historique visible à 3-4 barres sans
- * aucun moyen de voir le reste, alors qu'un simple scroll le garde consultable.
+ * @/engine/footprintEngine.ts pour le détail du port (dont la ligne de lecture synthétique
+ * WINNING/ABS/AGGR, alimentée ici depuis ControlEngine via getControlSnapshot()). Enveloppé dans
+ * un ScrollView horizontal plutôt que de ne dessiner que les barres qui tiennent dans la largeur
+ * visible comme le web : sur un écran mobile étroit, ça aurait réduit l'historique visible à 3-4
+ * barres sans aucun moyen de voir le reste, alors qu'un simple scroll le garde consultable.
  */
 export default function FootprintPanelInner() {
-  const { instrument, timeframe, service } = useTerminalEngine();
+  const { instrument, timeframe, service, getControlSnapshot } = useTerminalEngine();
   const engineRef = useRef<FootprintEngine | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const lastWidthRef = useRef(0);
@@ -26,6 +26,7 @@ export default function FootprintPanelInner() {
     height: 0,
     textItems: [],
   });
+  const [header, setHeader] = useState<ReturnType<FootprintEngine['getHeader']>>({ title: '', segments: [] });
 
   useEffect(() => {
     const engine = new FootprintEngine(instrument);
@@ -51,9 +52,11 @@ export default function FootprintPanelInner() {
     const id = setInterval(() => {
       const engine = engineRef.current;
       if (!engine) return;
+      engine.setControlSnapshot(getControlSnapshot());
       engine.tick();
       const next = engine.getFrame();
       setFrame(next);
+      setHeader(engine.getHeader());
       // Nouvelle barre ajoutée (canvas élargi) : suit automatiquement, comme le desktop qui
       // affiche toujours les barres les plus récentes contre la gouttière de prix — sans ça, le
       // ScrollView resterait scrollé sur une position de plus en plus ancienne au fil du temps.
@@ -63,30 +66,44 @@ export default function FootprintPanelInner() {
       }
     }, 250);
     return () => clearInterval(id);
-  }, []);
+  }, [getControlSnapshot]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     setContainerHeight(e.nativeEvent.layout.height);
   };
 
   return (
-    <View style={styles.container} onLayout={onLayout}>
-      {containerHeight > 0 && (
-        <ScrollView ref={scrollRef} horizontal contentContainerStyle={styles.scrollContent} showsHorizontalScrollIndicator={false}>
-          {frame.image && frame.width > 0 && (
-            <View style={{ width: frame.width, height: containerHeight }}>
-              <Canvas style={StyleSheet.absoluteFill}>
-                <Image image={frame.image} x={0} y={0} width={frame.width} height={containerHeight} fit="fill" />
-              </Canvas>
-              <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-                {frame.textItems.map((item, i) => (
-                  <FootprintText key={i} item={item} />
-                ))}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {header.title}
+        </Text>
+        <View style={styles.headerSegments}>
+          {header.segments.map((seg, i) => (
+            <Text key={i} style={[styles.headerSegment, { color: seg.color }]} numberOfLines={1}>
+              {seg.label}
+            </Text>
+          ))}
+        </View>
+      </View>
+      <View style={styles.gridArea} onLayout={onLayout}>
+        {containerHeight > 0 && (
+          <ScrollView ref={scrollRef} horizontal contentContainerStyle={styles.scrollContent} showsHorizontalScrollIndicator={false}>
+            {frame.image && frame.width > 0 && (
+              <View style={{ width: frame.width, height: containerHeight }}>
+                <Canvas style={StyleSheet.absoluteFill}>
+                  <Image image={frame.image} x={0} y={0} width={frame.width} height={containerHeight} fit="fill" />
+                </Canvas>
+                <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                  {frame.textItems.map((item, i) => (
+                    <FootprintText key={i} item={item} />
+                  ))}
+                </View>
               </View>
-            </View>
-          )}
-        </ScrollView>
-      )}
+            )}
+          </ScrollView>
+        )}
+      </View>
     </View>
   );
 }
@@ -120,6 +137,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0c0f',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    height: 18,
+  },
+  headerTitle: {
+    fontFamily: Fonts.mono,
+    fontSize: 8.5,
+    fontWeight: '700',
+    color: '#aeb8c2',
+    flexShrink: 1,
+  },
+  headerSegments: {
+    flexDirection: 'row',
+    gap: 10,
+    flexShrink: 0,
+  },
+  headerSegment: {
+    fontFamily: Fonts.mono,
+    fontSize: 7.5,
+    fontWeight: '700',
+  },
+  gridArea: {
+    flex: 1,
+    minHeight: 0,
   },
   scrollContent: {
     flexGrow: 1,
