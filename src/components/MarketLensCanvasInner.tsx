@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import { useTerminalEngine } from '@/engine/TerminalEngineContext';
 import type { AnalysisSummary, EventCounts, PollEvent } from '@/engine/marketDataService';
-import { MarketLensEngine } from '@/engine/marketLensEngine';
+import { MarketLensEngine, PROFILE_W } from '@/engine/marketLensEngine';
 import { useTheme } from '@/hooks/use-theme';
 
 const RIBBON_COLOR = '#e8e8e8';
@@ -49,9 +49,16 @@ export default function MarketLensCanvasInner() {
   const summaryRef = useRef<AnalysisSummary | null>(null);
   const alertEventsRef = useRef<LensAlertOverlay[]>([]);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [frame, setFrame] = useState<{ image: ReturnType<MarketLensEngine['getFrame']>['image']; ribbon: SkPoint[] }>({
+  const [frame, setFrame] = useState<{
+    image: ReturnType<MarketLensEngine['getFrame']>['image'];
+    ribbon: SkPoint[];
+    profileImage: ReturnType<MarketLensEngine['getFrame']>['profileImage'];
+    profileWidth: number;
+  }>({
     image: null,
     ribbon: [],
+    profileImage: null,
+    profileWidth: 0,
   });
   const [summary, setSummary] = useState<AnalysisSummary | null>(null);
   const [counts, setCounts] = useState<EventCounts>(analysis.eventCounts);
@@ -81,7 +88,7 @@ export default function MarketLensCanvasInner() {
       if (!engine) return;
       engine.pushColumn();
       const f = engine.getFrame();
-      setFrame({ image: f.image, ribbon: f.ribbon });
+      setFrame({ image: f.image, ribbon: f.ribbon, profileImage: f.profileImage, profileWidth: f.profileWidth });
       setWallItems(projectWalls(summaryRef.current, engine, size.height));
       setEventItems(projectAlertEvents(alertEventsRef.current, engine, size.height));
     }, 60);
@@ -204,6 +211,16 @@ export default function MarketLensCanvasInner() {
               )}
               {frame.ribbon.length > 1 && (
                 <Points points={frame.ribbon} mode="polygon" color={RIBBON_COLOR} style="stroke" strokeWidth={1.5} />
+              )}
+              {frame.profileImage && (
+                <Image
+                  image={frame.profileImage}
+                  x={size.width - frame.profileWidth}
+                  y={0}
+                  width={frame.profileWidth}
+                  height={size.height}
+                  fit="fill"
+                />
               )}
             </Canvas>
             <View pointerEvents="none" style={styles.overlayLayer}>
@@ -353,7 +370,7 @@ const styles = StyleSheet.create({
   wallOverlay: {
     position: 'absolute',
     left: 0,
-    right: 0,
+    right: PROFILE_W, // laisse la gouttière de profil de volume libre, voir marketLensEngine.ts
     height: 36,
     justifyContent: 'center',
   },
@@ -379,7 +396,7 @@ const styles = StyleSheet.create({
   eventOverlay: {
     position: 'absolute',
     left: 0,
-    right: 0,
+    right: PROFILE_W, // idem wallOverlay
     height: 28,
     justifyContent: 'center',
   },

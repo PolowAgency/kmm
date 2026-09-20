@@ -10,6 +10,12 @@ const MAX_HEATMAP_ROWS = 600
 // les murs de carnet pèsent plus lourd que la taille moyenne d'un trade.
 const DENSITY_DIV = 5.5
 const BG = '#07080b'
+// Gouttière de profil de volume (bord droit) — largeur ~identique à la référence web (`prof = 92`
+// moins la marge de la ligne de gutter, ici simplifié à une seule constante).
+export const PROFILE_W = 64
+const POC_COLOR = '#e8822a'
+const VALUE_AREA_COLOR = '#6e7987'
+const OUTSIDE_COLOR = '#3d454f'
 
 interface BookMeta {
   size: number
@@ -27,6 +33,8 @@ export interface LensFrame {
   width: number
   height: number
   ribbon: SkPoint[]
+  profileImage: SkImage | null
+  profileWidth: number
 }
 
 export interface LensViewport {
@@ -79,6 +87,11 @@ export class MarketLensEngine {
 
   private ribbon: { x: number; y: number }[] = []
 
+  // Volume échangé par tick de prix, cumulé sur toute la session (jamais purgé, comme
+  // sessionVol côté web) — sert au profil de volume (POC/VAH/VAL) peint dans profileBuf.
+  private sessionVol = new Map<number, number>()
+  private profileBuf: SkSurface | null = null
+
   constructor(instrument: Instrument) {
     this.instrument = instrument
     this.buildLut()
@@ -92,6 +105,7 @@ export class MarketLensEngine {
     this.height = height
     this.buf = Skia.Surface.Make(width, height)
     this.buf2 = Skia.Surface.Make(width, height)
+    this.profileBuf = Skia.Surface.Make(PROFILE_W, height)
     this.ribbon = []
     if (this.buf) {
       const canvas = this.buf.getCanvas()
@@ -134,6 +148,8 @@ export class MarketLensEngine {
 
   handleTrade(trade: Trade) {
     this.avgSize = this.avgSize * 0.985 + trade.size * 0.015
+    const t = Math.round(trade.price / this.instrument.tick)
+    this.sessionVol.set(t, (this.sessionVol.get(t) ?? 0) + trade.size)
   }
 
   /** Pan vertical (geste 1 doigt) — deltaRows en lignes de prix, positif = vers le passé/haut. */
@@ -220,6 +236,7 @@ export class MarketLensEngine {
     const x = this.width - this.colW
     const viewCenter = this.viewCenter()
     this.paintCol(x, col, rows, half, viewCenter)
+    this.paintProfile(rows, half, viewCenter)
 
     const yNow = (half - (col.midT - viewCenter)) * this.rowH
     if (dy) for (const p of this.ribbon) p.y += dy
@@ -266,6 +283,87 @@ export class MarketLensEngine {
     canvas.drawRect(Skia.XYWHRect(x, 0, this.colW, this.height), paint)
   }
 
+  /**
+   * Profil de volume (POC/VAH/VAL) — port de computeProfile() côté web (lensEngine.ts), verbatim :
+   * POC = tick au volume le plus fort, value area = plage contiguë autour du POC qui concentre 70%
+   * du volume total, étendue tick par tick vers le côté (haut/bas) le plus chargé.
+   */
+  private computeProfile(): { poc: number; vah: number; val: number } | null {
+    if (this.sessionVol.size < 5) return null
+    let poc = 0
+    let pocV = 0
+    let tot = 0
+    for (const [t, v] of this.sessionVol) {
+      tot += v
+      if (v > pocV) {
+        pocV = v
+        poc = t
+      }
+    }
+    let acc = pocV
+    let lo = poc
+    let hi = poc
+    while (acc < tot * 0.7) {
+      const up = this.sessionVol.get(hi + 1) ?? 0
+      const dn = this.sessionVol.get(lo - 1) ?? 0
+      if (up === 0 && dn === 0) {
+        hi++
+        lo--
+        acc += 1e-9
+        if (hi - lo > 400) break
+        continue
+      }
+      if (up >= dn) {
+        hi++
+        acc += up
+      } else {
+        lo--
+        acc += dn
+      }
+    }
+    return { poc, vah: hi, val: lo }
+  }
+
+  /**
+   * Gouttière de profil de volume — redessinée entièrement à chaque colonne (contrairement au
+   * raster de la heatmap, elle ne défile pas : c'est un histogramme du volume cumulé de session
+   * sur les lignes de prix ACTUELLEMENT visibles, donc rien à faire scroller). Port simplifié de
+   * la référence web (même histogramme + coloration POC/value-area/hors-VA) : les rails HVN/LVN
+   * du web dépendent de l'Auction Engine (zones de contrôle), pas encore porté ici — délibérément
+   * omis plutôt que bâclé, voir le docstring de la classe.
+   */
+  private paintProfile(rows: number, half: number, viewCenter: number) {
+    if (!this.profileBuf) return
+    const canvas = this.profileBuf.getCanvas()
+    const bgPaint = Skia.Paint()
+    bgPaint.setColor(Skia.Color(BG))
+    canvas.drawRect(Skia.XYWHRect(0, 0, PROFILE_W, this.height), bgPaint)
+
+    const profile = this.computeProfile()
+    if (!profile) return
+
+    const viewCenterInt = Math.round(viewCenter)
+    let maxV = 0
+    for (let r = 0; r < rows; r++) {
+      const t = viewCenterInt + (half - r)
+      maxV = Math.max(maxV, this.sessionVol.get(t) ?? 0)
+    }
+    if (maxV <= 0) return
+
+    const barH = Math.max(1, Math.round(this.rowH) - 1)
+    const paint = Skia.Paint()
+    for (let r = 0; r < rows; r++) {
+      const t = viewCenterInt + (half - r)
+      const v = this.sessionVol.get(t) ?? 0
+      if (!v) continue
+      const y = Math.round((r + 0.5) * this.rowH - barH / 2)
+      const w = Math.max(1, Math.round((PROFILE_W - 8) * (v / maxV)))
+      const inVA = t >= profile.val && t <= profile.vah
+      paint.setColor(Skia.Color(t === profile.poc ? POC_COLOR : inVA ? VALUE_AREA_COLOR : OUTSIDE_COLOR))
+      canvas.drawRect(Skia.XYWHRect(PROFILE_W - w, y, w, barH), paint)
+    }
+  }
+
   private buildLut() {
     const stops: [number, number, number, number][] = [
       [0, 13, 15, 19],
@@ -297,6 +395,8 @@ export class MarketLensEngine {
       width: this.width,
       height: this.height,
       ribbon: this.ribbon.map((p) => Skia.Point(p.x, p.y)),
+      profileImage: this.profileBuf ? this.profileBuf.makeImageSnapshot() : null,
+      profileWidth: PROFILE_W,
     }
   }
 
