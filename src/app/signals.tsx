@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { InstrumentSwitcher } from '@/components/instrument-switcher';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
@@ -77,6 +78,9 @@ export default function SignalsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.header}>
+        <InstrumentSwitcher />
+      </View>
       <View style={styles.tabBar}>
         {(['signals', 'news', 'stats'] as Tab[]).map((t) => (
           <TabButton key={t} active={tab === t} label={t.toUpperCase()} onPress={() => setTab(t)} />
@@ -225,6 +229,12 @@ function StatRowView({ row }: { row: StatRow }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
   },
   tabBar: {
     flexDirection: 'row',

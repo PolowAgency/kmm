@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { ControlEngine, type ControlSnapshot } from './controlEngine'
 import { INSTRUMENTS, TIMEFRAMES } from './instruments'
 import { AnalysisEngine, MarketDataService, type PollEvent } from './marketDataService'
 import { PressureEngine, type PressureSample } from './pressureEngine'
@@ -11,6 +12,7 @@ interface TerminalEngineValue {
   service: MarketDataService
   analysis: AnalysisEngine
   pressure: PressureEngine
+  control: ControlEngine
   status: ServiceStatus
   setSymbol: (sym: string) => void
   setTimeframe: (id: string) => void
@@ -24,6 +26,11 @@ interface TerminalEngineValue {
   subscribePressure: (cb: (sample: PressureSample) => void) => () => void
   /** Dernier échantillon Pressure connu, ou null tant que le moteur n'a pas assez de données. */
   getPressureSnapshot: () => PressureSample | null
+  /** S'abonne aux échantillons Market Control (~1Hz, voir ControlEngine.tick) — même principe que
+   * subscribePressure. */
+  subscribeControl: (cb: (snapshot: ControlSnapshot) => void) => () => void
+  /** Dernier snapshot Market Control connu, ou null tant que le moteur n'a pas assez de données. */
+  getControlSnapshot: () => ControlSnapshot | null
   /** S'abonne aux lots d'événements AnalysisEngine.poll() (~400ms) — un seul détecteur partagé.
    * Le callback reçoit uniquement les événements NOUVEAUX de ce tick, pas tout l'historique. */
   subscribeAlerts: (cb: (events: PollEvent[]) => void) => () => void
@@ -91,6 +98,15 @@ export function TerminalEngineProvider({
   }
   const latestPressureRef = useRef<PressureSample | null>(null)
   const pressureSubscribersRef = useRef(new Set<(s: PressureSample) => void>())
+
+  // Même schéma que pressureRef : une instance par instrument, un seul sampler (~1Hz, voir
+  // ControlEngine.tick) alimente tous les abonnés.
+  const controlRef = useRef<ControlEngine | null>(null)
+  if (!controlRef.current || controlRef.current.instrument !== instrument) {
+    controlRef.current = new ControlEngine(instrument)
+  }
+  const latestControlRef = useRef<ControlSnapshot | null>(null)
+  const controlSubscribersRef = useRef(new Set<(s: ControlSnapshot) => void>())
   const alertSubscribersRef = useRef(new Set<(events: PollEvent[]) => void>())
   const lastHighImpactNewsRef = useRef(0)
 
@@ -102,10 +118,12 @@ export function TerminalEngineProvider({
     const onTrade = (t: Parameters<AnalysisEngine['onTrade']>[0]) => {
       analysisRef.current?.onTrade(t)
       pressureRef.current?.onTrade(t)
+      controlRef.current?.onTrade(t)
     }
     const onBook = (b: Parameters<AnalysisEngine['onBook']>[0]) => {
       analysisRef.current?.onBook(b)
       pressureRef.current?.onBook(b)
+      controlRef.current?.onBook(b)
     }
     const onStatus = (s: ServiceStatus) => setStatus(s)
     const onNews = (n: NewsItem) => {
@@ -134,6 +152,19 @@ export function TerminalEngineProvider({
         for (const cb of pressureSubscribersRef.current) cb(sample)
       }
     }, 250)
+    return () => clearInterval(id)
+  }, [])
+
+  // Sampler Market Control partagé (~1Hz, comme la référence — voir le docstring de
+  // ControlEngine.tick). Même schéma que le sampler Pressure ci-dessus.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const snapshot = controlRef.current?.tick(Date.now())
+      if (snapshot) {
+        latestControlRef.current = snapshot
+        for (const cb of controlSubscribersRef.current) cb(snapshot)
+      }
+    }, 1000)
     return () => clearInterval(id)
   }, [])
 
@@ -169,6 +200,13 @@ export function TerminalEngineProvider({
     }
   }, [])
   const getPressureSnapshot = useCallback(() => latestPressureRef.current, [])
+  const subscribeControl = useCallback((cb: (snapshot: ControlSnapshot) => void) => {
+    controlSubscribersRef.current.add(cb)
+    return () => {
+      controlSubscribersRef.current.delete(cb)
+    }
+  }, [])
+  const getControlSnapshot = useCallback(() => latestControlRef.current, [])
   const subscribeAlerts = useCallback((cb: (events: PollEvent[]) => void) => {
     alertSubscribersRef.current.add(cb)
     return () => {
@@ -189,11 +227,14 @@ export function TerminalEngineProvider({
       service: serviceRef.current!,
       analysis: analysisRef.current!,
       pressure: pressureRef.current!,
+      control: controlRef.current!,
       status,
       setSymbol,
       setTimeframe,
       subscribePressure,
       getPressureSnapshot,
+      subscribeControl,
+      getControlSnapshot,
       subscribeAlerts,
       isNewsRecent,
       sound,
@@ -201,7 +242,23 @@ export function TerminalEngineProvider({
       forceSim,
       setForceSim,
     }),
-    [symbol, instrument, timeframe, status, sound, forceSim, setSymbol, setTimeframe, subscribePressure, getPressureSnapshot, subscribeAlerts, isNewsRecent, setForceSim],
+    [
+      symbol,
+      instrument,
+      timeframe,
+      status,
+      sound,
+      forceSim,
+      setSymbol,
+      setTimeframe,
+      subscribePressure,
+      getPressureSnapshot,
+      subscribeControl,
+      getControlSnapshot,
+      subscribeAlerts,
+      isNewsRecent,
+      setForceSim,
+    ],
   )
 
   return <TerminalEngineContext.Provider value={value}>{children}</TerminalEngineContext.Provider>

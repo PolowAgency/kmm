@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { InstrumentSwitcher } from '@/components/instrument-switcher';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
@@ -58,7 +59,7 @@ export default function TerminalScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <ThemedText type="smallBold">{instrument.code}</ThemedText>
+        <InstrumentSwitcher />
         <ThemedText type="small" themeColor="textSecondary">
           {instrument.name}
         </ThemedText>
